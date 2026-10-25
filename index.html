@@ -277,7 +277,7 @@ const LEVELS=[
   {m:20,sq:.12,g:[['make',4,1]]},
   {m:20,shape:'cube',prof:'pyramide',g:[['make',4,1]]},
   {m:24,fr:.12,rain:5,obs:[pend(.5,.18,.3,.6,1.1,.07)],g:[['make',4,2],['crack',2]],mini:true},
-  {m:22,prof:'sablier',jk:.05,launch:1,g:[['make',4,2]]},
+  {m:22,prof:'sablier',jk:.05,g:[['make',4,2]]},
   {m:99,time:55,bm:.12,g:[['score',260]]},
   {m:24,ice:2,obs:[mill(.5,.55,.5,1.2)],g:[['thaw',2],['make',4,1]]},
   {m:26,prof:'vase',wind:110,eg:.1,g:[['make',4,2]]},
@@ -875,10 +875,19 @@ function trajectory(ax,ay,vx0,vy0,h,cube){
 function drawLaunch(t){
   const cube=L.shape==='cube',h=rad(cur.l)*(cube?.9:1),ax=J.x+J.w/2,ay=J.y-h-4;
   let v=dragging?launchVel(aimX,aimY):null;if(!v)v=[0,260];
-  const pts=trajectory(ax,ay,v[0],v[1],h,cube);
-  ctx.save();ctx.fillStyle=skin()===1?'#fff':INK;
-  pts.forEach((p,i)=>{ctx.globalAlpha=Math.max(.15,.85-i*.035);ctx.beginPath();ctx.arc(p[0],p[1],3,0,6.283);ctx.fill()});
-  if(dragging){ctx.globalAlpha=.4;ctx.setLineDash([4,6]);ctx.lineWidth=2;ctx.strokeStyle=skin()===1?'#fff':INK;ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(aimX,aimY);ctx.stroke()}
+  const pts=trajectory(ax,ay,v[0],v[1],h,cube),dk=skin()===1?'#fff':INK;
+  ctx.save();
+  // tee mat in perspective (trapezoid) + shadow
+  const mw=Math.max(h*3.2,J.w*.34),my=ay+h+2;
+  ctx.globalAlpha=.9;ctx.fillStyle='#3fae5a';ctx.strokeStyle=INK;ctx.lineWidth=3;ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(ax-mw*.5,my-5);ctx.lineTo(ax+mw*.5,my-5);ctx.lineTo(ax+mw*.7,my+11);ctx.lineTo(ax-mw*.7,my+11);ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.fillStyle='#5fd17a';ctx.beginPath();ctx.moveTo(ax-mw*.4,my-3);ctx.lineTo(ax+mw*.4,my-3);ctx.lineTo(ax+mw*.5,my+3);ctx.lineTo(ax-mw*.5,my+3);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(ax,my-1,h*.8,h*.2,0,0,6.283);ctx.fill();
+  // trajectory: dots shrink with depth, with ground shadows
+  const n=pts.length;
+  pts.forEach((p,i)=>{const dp=i/Math.max(1,n),r=4.4-2.6*dp;ctx.globalAlpha=Math.max(.2,.9-dp*.7);ctx.fillStyle=dk;ctx.beginPath();ctx.arc(p[0],p[1],r,0,6.283);ctx.fill();ctx.globalAlpha*=.3;ctx.beginPath();ctx.ellipse(p[0],p[1]+h*.5,r*1.3,r*.45,0,0,6.283);ctx.fill()});
+  if(dragging){ctx.globalAlpha=.45;ctx.setLineDash([4,6]);ctx.lineWidth=2;ctx.strokeStyle=dk;ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(aimX,aimY);ctx.stroke();ctx.setLineDash([]);
+    const pw=Math.min(1,Math.hypot(aimX-ax,aimY-ay)*3.4/680);ctx.globalAlpha=.9;ctx.fillStyle='rgba(0,0,0,.25)';ctx.fillRect(ax-mw*.5,my+14,mw,6);ctx.fillStyle=pw>.8?'#ff4757':pw>.5?'#ffb020':'#7bd96b';ctx.fillRect(ax-mw*.5,my+14,mw*pw,6)}
   ctx.restore();
   ctx.globalAlpha=cool>0?.45:1;drawBall({l:cur.l,k:cur.k,hp:3,cube},ax,ay,rad(cur.l),t);ctx.globalAlpha=1;
 }
@@ -917,6 +926,13 @@ function windVec(b){
   if(m==='up')return[0,-L.wind*6*Math.pow(rad(0)/b.r,1.2)];
   return[L.wind*2.8*Math.sin(simT*.8),0];
 }
+function pull(dt){
+  const k=1500*(U/400)*dt*dt;
+  for(let i=0;i<balls.length;i++){const a=balls[i];if(a.falling||a.fly||a.k||a.fix||a.grow<1)continue;
+    for(let j=i+1;j<balls.length;j++){const b=balls[j];if(b.falling||b.fly||b.k||b.fix||b.grow<1||b.l!==a.l)continue;
+      const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),R=1.5*(a.r+b.r);if(d>=R||d<1)continue;
+      const f=k*(1-d/R)/d;a.x+=dx*f;a.y+=dy*f;b.x-=dx*f;b.y-=dy*f}}
+}
 function magnet(dt){
   const k=3500*L.mag*(U/400)*dt*dt;
   for(let i=0;i<balls.length;i++){const a=balls[i];if(a.falling||a.k||a.grow<1)continue;
@@ -950,7 +966,7 @@ function step(dt){
   if(L.rise&&!over&&!ending&&grace===0)fl=Math.min(.6,fl+L.rise*dt*(S.pet==='tortue'?.6:1));
   if(L.trap){const ph=simT%9;trapOpen=ph>6.5;trapWarn=ph>5&&ph<=6.5;trapX=J.x+J.w/2;trapHW=Math.max(rad(2)*1.2,J.w*.11)}else{trapOpen=false;trapWarn=false}
   if(flDown>0){const d=Math.min(flDown,.2*dt);flDown-=d;fl=Math.max(0,fl-d)}
-  if(L.mag)magnet(dt);
+  if(L.mag)magnet(dt);else pull(dt);
   const maxV=(shakeT>0?1400:650)*dt,gs=L.gs;
   tiltNow=L.tilt?L.tilt*.01745*Math.sin(simT*.7):0;const tgx=G*gs*Math.sin(tiltNow),tcy=Math.cos(tiltNow);
   if(L.sq)computeWalls();
