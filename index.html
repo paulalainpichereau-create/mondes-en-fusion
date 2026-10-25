@@ -393,7 +393,12 @@ function genDaily(w){
   if(o.rise)o.m=28;if(rnd()<.35)o.shape='cube';
   return o;
 }
-function levelDef(w,i){const L=Object.assign({},LDEF,i<0?genDaily(w):LEVELS[w][i]);if(!L.time&&L.m<18)L.m=18;L.tw=twists(L,w);return L}
+function levelDef(w,i){const L=Object.assign({},LDEF,i<0?genDaily(w):LEVELS[w][i]);
+  if(i>=0){const f=i<5?1.25:1.4;L.g=L.g.map(g=>{g=g.slice();const ix=g[0]==='make'?2:1;
+    if(g[0]==='bank'||g[0]==='score')g[ix]=Math.round(g[ix]*f/10)*10;
+    else if(g[0]!=='chain'&&g[ix]>=2)g[ix]=Math.ceil(g[ix]*f);
+    return g});if(!L.time)L.m=Math.ceil(L.m*1.1)}
+  if(!L.time&&L.m<18)L.m=18;L.tw=twists(L,w);return L}
 const PN={funnel:'Bocal en entonnoir',sablier:'Sablier',vase:'Bocal en vase',cloche:'Bocal en cloche',diamant:'Bocal diamant',pyramide:'Bocal pyramide'};
 const WN={gust:['💨','Rafales'],swirl:['🌀','Tourbillon'],up:['🎈','Courant ascendant'],sin:['🌊','Courant']};
 function twists(L,w){
