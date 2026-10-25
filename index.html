@@ -398,6 +398,7 @@ function levelDef(w,i){const L=Object.assign({},LDEF,i<0?genDaily(w):LEVELS[w][i
     if(g[0]==='bank'||g[0]==='score')g[ix]=Math.round(g[ix]*f/10)*10;
     else if(g[0]!=='chain'&&g[ix]>=2)g[ix]=Math.ceil(g[ix]*f);
     return g});if(!L.time)L.m=Math.ceil(L.m*1.1)}
+  if(!L.time){L.m=Math.max(L.m,26);if(!L.g.some(g=>g[0]==='score'))L.g=L.g.concat([['score',Math.round(L.m*13/10)*10]])}
   if(!L.time&&L.m<18)L.m=18;L.tw=twists(L,w);return L}
 const PN={funnel:'Bocal en entonnoir',sablier:'Sablier',vase:'Bocal en vase',cloche:'Bocal en cloche',diamant:'Bocal diamant',pyramide:'Bocal pyramide'};
 const WN={gust:['💨','Rafales'],swirl:['🌀','Tourbillon'],up:['🎈','Courant ascendant'],sin:['🌊','Courant']};
