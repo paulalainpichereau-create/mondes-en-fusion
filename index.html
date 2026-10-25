@@ -149,6 +149,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     <div class="coll"><b id="collT"></b><div class="slots" id="slots"></div></div>
     <div class="build"><div class="bhead"><b id="bT"></b><span id="bStars"></span></div><canvas id="bScene"></canvas><button class="btn ok" id="bBtn"></button></div>
     <div class="row2"><button class="btn alt" id="dailyBtn"></button><button class="btn alt" id="petBtn">🐾 Compagnons</button></div>
+    <div class="row2"><button class="btn alt" id="questBtn">📋 Quêtes du jour</button></div>
     <div class="path" id="path"><svg id="pathSvg" aria-hidden="true"></svg></div>
   </section>
   <button class="btn chest" id="chestBtn">🎁 Coffre du jour</button>
@@ -203,6 +204,12 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     <p id="chSub"></p>
     <div class="days" id="chDays"></div>
     <div class="btns"><button class="btn ok" id="chOk">Super !</button></div>
+  </div></div>
+
+  <div class="ov" id="ovQ" hidden><div class="card">
+    <h3>Quêtes du jour</h3>
+    <div id="qList"></div>
+    <div class="btns"><button class="btn ok" id="qOk">Fermer</button></div>
   </div></div>
 
   <div class="ov" id="ovCards" hidden><div class="card">
@@ -561,7 +568,7 @@ function show(name){
   screen=name;$('map').hidden=name!=='map';$('game').hidden=name!=='game';$('chestBtn').hidden=name!=='map';
   if(name==='map')renderMap();
 }
-const ovs=['ovPre','ovRes','ovPause','ovChest','ovSet','ovCards','ovPets'];
+const ovs=['ovPre','ovRes','ovPause','ovChest','ovSet','ovCards','ovPets','ovQ'];
 const openOv=id=>{$(id).hidden=false;const b=$(id).querySelector('.btn');b&&b.focus({preventScroll:true})};
 const closeOv=id=>$(id).hidden=true;
 const anyOv=()=>ovs.some(i=>!$(i).hidden);
@@ -578,6 +585,7 @@ function renderMap(){
   renderBuild();renderPath();
   const dd=S.dailyDone===dstr(new Date());$('dailyBtn').textContent=dd?'✅ Défi du jour réussi':'🎲 Défi du jour · +60 🪙 +💣';
   const ta=$('tabs').querySelector('.on');ta&&ta.scrollIntoView({inline:'center',block:'nearest'});
+  {const n=qClaimable();$('questBtn').textContent=n?`📋 Quêtes du jour · ${n} à réclamer !`:'📋 Quêtes du jour'}
   const rd=chestReady();$('chestBtn').classList.toggle('ready',rd);$('chestBtn').textContent=rd?'🎁 Coffre du jour !':'🎁 Revenez demain';
 }
 let newDisc=-1;
@@ -700,6 +708,24 @@ $('preGo').onclick=()=>{
 // ---------- game state ----------
 const cv=$('c'),ctx=cv.getContext('2d'),nctx=$('nextc').getContext('2d');
 let W_,H_,dpr=1,J={x:0,y:0,w:300,h:400},U=300,balls=[];
+const QDEF=()=>{const d=new Date(),n=d.getDate()+d.getMonth();return[
+ {k:'merges',t:n%2?'Fais 40 fusions':'Fais 70 fusions',g:n%2?40:70,r:'+50 🪙',ap:()=>{S.coins+=50}},
+ {k:'wins',t:n%3?'Gagne 3 niveaux':'Gagne 5 niveaux',g:n%3?3:5,r:'+1 💣',ap:()=>{S.bombs=Math.min(9,S.bombs+1)}},
+ {k:'chain',t:n%2?'Fais une chaîne ×3':'Fais une chaîne ×4',g:n%2?3:4,r:'+1 📍',ap:()=>{S.needles++}}]};
+function qState(){const t=dstr(new Date());if(!S.q||S.q.day!==t)S.q={day:t,merges:0,wins:0,chain:0,got:[]};return S.q}
+function qAdd(k,v,mx){const q=qState();q[k]=mx?Math.max(q[k],v):q[k]+v;save()}
+function qClaimable(){const q=qState();return QDEF().filter((x,i)=>q[x.k]>=x.g&&!q.got.includes(i)).length}
+function renderQ(){const q=qState();$('qList').innerHTML='';QDEF().forEach((x,i)=>{const done=q[x.k]>=x.g,got=q.got.includes(i),p=Math.min(x.g,q[x.k]);
+  const d=document.createElement('div');d.style.cssText='display:flex;align-items:center;gap:8px;margin:8px 0;text-align:left';
+  d.innerHTML=`<div style="flex:1"><b>${x.t}</b><div style="height:8px;border:2px solid var(--ink);border-radius:6px;background:#fff;overflow:hidden;margin-top:4px"><i style="display:block;height:100%;width:${p/x.g*100}%;background:#7bd96b"></i></div><small>${p}/${x.g} · ${x.r}</small></div>`;
+  const b=document.createElement('button');b.className='btn '+(done&&!got?'ok':'alt');b.textContent=got?'✓':done?'Réclamer':'…';b.disabled=!done||got;b.onclick=()=>{au();x.ap();q.got.push(i);save();sWin();renderQ();renderMap()};d.appendChild(b);$('qList').appendChild(d)})}
+function rollGift(boss){
+  if(!boss&&Math.random()>.4)return '';const p=Math.random();let t;
+  if(p<.55){const c=Math.round((15+Math.random()*45)*(boss?2:1));S.coins+=c;t=`+${c} 🪙`}
+  else if(p<.67){S.needles++;t='+1 📍 aiguille'}else if(p<.79){S.shakes++;t='+1 〰️ secousse'}else if(p<.9){S.bombs=Math.min(9,S.bombs+1);t='+1 💣 bombe'}
+  else{tickLives();S.lives=Math.min(MAXLIVES,S.lives+1);t='+1 ❤ vie'}
+  return t}
+let gifted=false;
 let bank=0,wantWin=false,adK='',adT=0;
 function adOffer(k){if(adK===k&&Date.now()-adT<5000){adK='';if(k==='needle')S.needles++;else if(k==='bomb')S.bombs++;else S.shakes++;save();toast('📺 Pub simulée terminée : +1 outil offert !');updTools();return}adK=k;adT=Date.now();toast('Pas assez de pièces · touche encore pour regarder une pub et gagner 1 outil 📺')}
 let obs=[],simT=0,thawed=0,dropsDone=0;
@@ -779,7 +805,7 @@ function newItem(){
 }
 function startLevel(){
   L=levelDef(Wi,Li);show('game');dpr=1;balls=[];obs=[];resizeGame();
-  score=0;moves=L.m;made=Array(TIERS).fill(0);bestChain=1;cracks=0;thawed=0;dropsDone=0;simT=0;bank=0;wantWin=false;maxL=2;aimX=J.x+J.w/2;cool=0;over=false;ending=false;endT=0;settle=0;overT=0;grace=0;
+  score=0;moves=L.m;made=Array(TIERS).fill(0);bestChain=1;cracks=0;thawed=0;dropsDone=0;simT=0;bank=0;wantWin=false;gifted=false;maxL=2;aimX=J.x+J.w/2;cool=0;over=false;ending=false;endT=0;settle=0;overT=0;grace=0;
   pops=[];parts=[];floats=[];chain=0;chainT=0;swapIn=0;shakeT=0;won=false;lifeSpent=false;armed=false;usedShake=false;discNow=[];next2=null;energy=0;fl=0;flDown=0;slow=0;shk=0;flash=0;banners=[];timeLeft=L.time||0;lastTl=-1;aimY=0;evT=0;qWarn=false;gemsOut=0;gemsGot=0;hatched=0;tiltNow=0;
   cur=newItem();next=newItem();next2=newItem();markSeen(cur);markSeen(next);markSeen(next2);
   // starting bubbles on the floor, skipping spots blocked by an obstacle
@@ -1058,7 +1084,7 @@ function merge(a,b){
   const ja=a.k==='joker'||a.k==='bolt',jb=b.k==='joker'||b.k==='bolt',jok=ja||jb,base=ja?b:jb?a:null,add=(a.k==='bolt'||b.k==='bolt')?2:1;
   const l=Math.min(TIERS-1,(base?base.l:a.l)+add),x=base?base.x:(a.x+b.x)/2,y=base?base.y:(a.y+b.y)/2;
   const n=mk(x,y,l);n.age=1;n.pop=1;n.grow=0;n.r=rad(l)*.55;balls.push(n);
-  chain=chainT>0?chain+1:1;chainT=1.1;bestChain=Math.max(bestChain,chain);
+  chain=chainT>0?chain+1:1;chainT=1.1;bestChain=Math.max(bestChain,chain);qAdd('merges',1);qAdd('chain',chain,1);
   const mult=Math.min(chain,5),gain=Math.pow(2,l+1)*mult;score+=gain;made[l]++;
   floats.push({x,y:y-n.r,t:0,txt:'+'+gain+(mult>1?'  ×'+mult:'')+(jok?'  🌈':''),col:mult>1?'#ffe066':'#ffffff',sz:20+mult*2.5+l});
   pops.push({x,y,r:rad(l),t:0,col:jok?'#ffffff':COL[l]});pops.push({x,y,r:rad(l)*.6,t:0,col:'#ffffff'});
@@ -1095,7 +1121,7 @@ function win0(){
   const ratio=moves/L.m,stars=ratio>=.5?3:ratio>=.25?2:1;
   const daily=Li<0,first=!daily&&S.prog[Wi][Li]===0,coins=(daily?60:10+8*stars+(first?20:0)+(L.boss&&first?30:0))+cardCoins;
   const wasOpen=Wi<WORLDS.length-1?worldOpen(Wi+1):true;
-  if(daily){S.dailyDone=dstr(new Date());S.bombs=Math.min(9,S.bombs+1)}else S.prog[Wi][Li]=Math.max(S.prog[Wi][Li],stars);S.coins+=coins;save();sWin();buzz([40,30,40]);
+  if(daily){S.dailyDone=dstr(new Date());S.bombs=Math.min(9,S.bombs+1)}else S.prog[Wi][Li]=Math.max(S.prog[Wi][Li],stars);S.coins+=coins;const gift=rollGift(!!L.boss);qAdd('wins',1);save();sWin();buzz([40,30,40]);
   burst(J.x+J.w/2,J.y+J.h*.4,'#ffd23f',40);for(let k=0;k<4;k++)setTimeout(()=>burst(J.x+Math.random()*J.w,J.y+J.h*(.2+Math.random()*.4),COL[k*2],26),k*160);if(!reduce)flash=.4;
   setTimeout(()=>{
     drawMascot($('resM'),'happy');$('resT').className='win';$('resT').textContent=L.boss?'Boss vaincu !':'Bravo !';
@@ -1104,7 +1130,7 @@ function win0(){
     $('resRew').textContent=`+${coins} 🪙`;listGoals($('resGoals'));
     const wn=Li===NL-1&&Wi<WORLDS.length-1&&!wasOpen;
     const nxtB=BUILD[Wi].items[S.built[Wi]],canB=nxtB&&availOf(Wi)>=nxtB.c;
-    $('resNote').textContent=(wn?`🎉 Nouveau monde débloqué : ${WORLDS[Wi+1].name} !`:'')+(canB?` ⭐ Tu peux construire : ${nxtB.e} ${nxtB.n} !`:'');
+    $('resNote').textContent=(wn?`🎉 Nouveau monde débloqué : ${WORLDS[Wi+1].name} !`:'')+(canB?` ⭐ Tu peux construire : ${nxtB.e} ${nxtB.n} !`:'')+(gift?` 🎁 Cadeau surprise : ${gift}`:'');
     const hasNext=Li>=0&&Li<NL-1;
     $('resBtns').innerHTML='';
     if(hasNext)addBtn('Niveau suivant','btn',()=>{closeOv('ovRes');show('map');showPre(Wi,Li+1)});
@@ -1118,11 +1144,12 @@ function addBtn(t,cls,fn){const b=document.createElement('button');b.className=c
 function lose(reason){
   if(over)return;over=true;armed=false;updTools();sLose();
   setTimeout(()=>{
-    drawMascot($('resM'),'sad');$('resT').className='lose';$('resT').textContent='Raté !';
+    drawMascot($('resM'),'sad');const nr=L.g.reduce((a,g)=>a+goalProg(g)/goalTarget(g),0)/L.g.length;$('resT').className='lose';$('resT').textContent=nr>=.7?'Presque !':'Raté !';
     $('resSub').textContent=reason==='overflow'?'Le bocal déborde !':reason==='time'?'Temps écoulé !':'Plus de bulles…';
     $('resStars').hidden=true;$('resRew').textContent='';listGoals($('resGoals'));$('resNote').textContent='';
     $('resBtns').innerHTML='';
     addBtn(`${L.time?'+15 s':'+5 bulles'} (${S.coins>=90?'90 🪙':'90 🪙 requis'})`,'btn ok',()=>{if(S.coins<90){toast('Pas assez de pièces');return}S.coins-=90;save();more()});
+    if(nr>=.75&&!L.time&&!gifted&&reason==='moves')addBtn('🎁 +3 bulles offertes','btn ok',()=>{gifted=true;more(3)});
     addBtn(`📺 ${L.time?'+15 s':'+5 bulles'} (pub simulée)`,'btn alt',()=>more());
     addBtn('Réessayer (−1 ❤)','btn alt',()=>{spendOnce();closeOv('ovRes');if(hasLife())startLevel();else{show('map');showPre(Wi,Li)}});
     addBtn('Carte (−1 ❤)','btn alt',()=>{spendOnce();closeOv('ovRes');show('map')});
@@ -1130,9 +1157,9 @@ function lose(reason){
   },800);
 }
 function spendOnce(){if(!lifeSpent){lifeSpent=true;spendLife()}}
-function more(){closeOv('ovRes');if(L.time){timeLeft+=15;lastTl=-1}else moves+=5;
+function more(n=5){closeOv('ovRes');if(L.time){timeLeft+=15;lastTl=-1}else moves+=n;
   balls.filter(b=>b.y-b.h<J.y+J.h*.14).forEach(b=>kill(b,b.k?'#b4a6a0':COL[b.l]));balls=balls.filter(b=>!b.dead);flDown+=.12;
-  over=false;ending=false;endT=0;settle=0;overT=0;grace=1.2;updHud();updTools();drawNext();toast(L.time?'+15 s !':'+5 bulles !')}
+  over=false;ending=false;endT=0;settle=0;overT=0;grace=1.2;updHud();updTools();drawNext();toast(L.time?'+15 s !':'+'+n+' bulles !')}
 
 // pause
 $('pauseBtn').onclick=()=>{au();if(over)return;$('pSound').textContent=S.sound?'Oui':'Non';$('pSound').className=S.sound?'on':'';openOv('ovPause')};
@@ -1145,13 +1172,15 @@ $('chestBtn').onclick=()=>{au();
   if(!chestReady()){toast('Reviens demain pour un nouveau coffre');return}
   const y=dstr(new Date(Date.now()-864e5));S.streak=S.chestDay===y?S.streak+1:1;
   const coins=20+10*Math.min(S.streak,7),bonus=S.streak%7===0;
-  S.coins+=coins;if(bonus){S.needles+=2;S.shakes+=1}S.chestDay=dstr(new Date());save();sWin();
-  $('chRew').textContent=`+${coins} 🪙`+(bonus?' · +2 📍 · +1 〰️':'');
-  $('chSub').textContent=`Jour ${S.streak} de suite. Un cadeau en plus tous les 7 jours !`;
+  S.coins+=coins;if(bonus){S.needles+=2;S.shakes+=1}let ms='';if(S.streak===3){S.bombs=Math.min(9,S.bombs+1);ms=' · +1 💣'}else if(S.streak===14){S.needles+=3;S.shakes++;S.bombs=Math.min(9,S.bombs+1);ms=' · +3 📍 +1 〰️ +1 💣'}else if(S.streak===30){S.coins+=300;ms=' · +300 🪙'}S.chestDay=dstr(new Date());save();sWin();
+  $('chRew').textContent=`+${coins} 🪙`+(bonus?' · +2 📍 · +1 〰️':'')+ms;
+  $('chSub').textContent=`Jour ${S.streak} de suite. Cadeaux en plus aux jours 3, 7, 14 et 30 !`;
   $('chDays').innerHTML=Array.from({length:7},(_,i)=>`<i class="${i<((S.streak-1)%7)+1?'on':''}">${i+1}</i>`).join('');
   openOv('ovChest');renderMap();
 };
 $('chOk').onclick=()=>closeOv('ovChest');
+$('questBtn').onclick=()=>{au();renderQ();openOv('ovQ')};
+$('qOk').onclick=()=>closeOv('ovQ');
 
 // settings
 function setUi(){$('sSound').textContent=S.sound?'Oui':'Non';$('sSound').className=S.sound?'on':'';$('sTest').textContent=S.test?'Oui':'Non';$('sTest').className=S.test?'on':'';$('sCoins').hidden=!S.test;$('sReset').textContent='Réinitialiser la progression'}
