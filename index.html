@@ -386,7 +386,7 @@ function genDaily(w){
   if(o.rise)o.m=28;if(rnd()<.35)o.shape='cube';
   return o;
 }
-function levelDef(w,i){const L=Object.assign({},LDEF,i<0?genDaily(w):LEVELS[w][i]);if(!L.minT&&!L.time)L.minT=L.boss?60:(L.mini||L.hard)?50:45;L.tw=twists(L,w);return L}
+function levelDef(w,i){const L=Object.assign({},LDEF,i<0?genDaily(w):LEVELS[w][i]);if(!L.time&&L.m<18)L.m=18;L.tw=twists(L,w);return L}
 const PN={funnel:'Bocal en entonnoir',sablier:'Sablier',vase:'Bocal en vase',cloche:'Bocal en cloche',diamant:'Bocal diamant',pyramide:'Bocal pyramide'};
 const WN={gust:['💨','Rafales'],swirl:['🌀','Tourbillon'],up:['🎈','Courant ascendant'],sin:['🌊','Courant']};
 function twists(L,w){
@@ -405,7 +405,7 @@ function twists(L,w){
   if(k.has('pend'))t.push(['🔔','Pendule']);if(k.has('mill'))t.push(['🌀','Moulin']);if(k.has('bump'))t.push(['🔴','Bumpers']);if(k.has('slope'))t.push(['🛝','Toboggans']);
   if(L.ice)t.push(['🧊','Bulles gelées']);if(L.rain)t.push(['🌧️','Pluie de pics']);if(L.fr)t.push(['💥','Bulles fragiles']);if(L.jk)t.push(['🌈','Joker']);
   if(L.slip)t.push(['🧊','Sol glissant']);if(L.tramp)t.push(['🦘','Trampoline']);if(L.trap)t.push(['🕳️','Trappe']);if(L.twin)t.push(['👯','Jumelles']);if(L.glue)t.push(['🍯','Colle']);if(L.giant)t.push(['🗿','Géant']);
-  if(L.launch)t.push(['🎯','Lancer']);if(L.push)t.push(['🎪','Poussoir + bac']);if(L.minT)t.push(['⏳',`Au moins ${L.minT} s`]);
+  if(L.launch)t.push(['🎯','Lancer']);if(L.push)t.push(['🎪','Poussoir + bac']);
   if(L.mag)t.push(['🧲','Aimant']);if(L.bm)t.push(['💣','Bulles bombe']);if(L.bolt)t.push(['⚡','Éclairs']);if(L.eg)t.push(['🥚','Œufs']);if(L.gem)t.push(['💎','Trésors']);
   return t;
 }
@@ -842,7 +842,7 @@ function drop(vel){
   if(vel){nb.falling=false;nb.fly=true;nb.px=nb.x-vel[0]/120;nb.py=nb.y-vel[1]/120}
   balls.push(nb);
   if(cur.twin&&!vel){const[lo2,hi2]=aimRange(h,nb.cube);const xa=Math.max(lo2,Math.min(hi2-2.2*h,x));nb.x=nb.px=xa;const n2=mk(0,0,cur.l,cur.k);n2.x=n2.px=xa+2.2*h;n2.y=nb.y;n2.py=nb.py;n2.falling=true;balls.push(n2)}
-  cur=next;next=next2;next2=newItem();markSeen(next2);if(swapIn>0)swapIn--;moves--;dropsDone++;cool=.4;sDrop();$('hint').textContent='';
+  cur=next;next=next2;next2=newItem();markSeen(next2);if(swapIn>0)swapIn--;moves--;dropsDone++;cool=.8;sDrop();$('hint').textContent='';
   if(L.rain&&dropsDone%L.rain===0)setTimeout(rainDrop,350);
   if(L.gem&&gemsOut<L.gem&&dropsDone>=2&&(dropsDone-2)%(L.gemEvery||4)===0)setTimeout(spawnGem,300);
   drawNext();updHud();
@@ -1087,7 +1087,7 @@ function merge(a,b){
 // ---------- results ----------
 function listGoals(el){el.innerHTML=L.g.map(g=>{const d=goalProg(g)>=goalTarget(g);return `<li>${d?'✅':'⬜'} ${goalText(g)} <span style="float:right;color:var(--muted)">${goalProg(g)}/${goalTarget(g)}</span></li>`}).join('')}
 function win(){
-  if(L.minT&&simT<L.minT){const sc=Math.ceil(L.minT-simT);if(!wantWin){ending=true;endT=0;settle=0}if(wantWin!==sc){wantWin=sc;toast('⏳ Le public en redemande… '+sc+' s')}return}
+  if(false){const sc=Math.ceil(L.minT-simT);if(!wantWin){ending=true;endT=0;settle=0}if(wantWin!==sc){wantWin=sc;toast('⏳ Le public en redemande… '+sc+' s')}return}
   win0();
 }
 function win0(){
