@@ -283,9 +283,9 @@ const push=(om,A=.27)=>({kind:'push',t:'box',x:.44,y:.935,w:.28,h:.1,A,om});
 // rain | ice | fr | jk | bm (bombs) | bolt | eg (eggs) | gem (treasures) | mag | obs | g goals | mini | boss
 const LEVELS=[
  [ // Chantier
-  {m:14,prof:'funnel',g:[['make',3,1]]},
+  {m:14,g:[['make',3,1]]},
   {m:16,wind:80,g:[['make',3,2],['chain',2]]},
-  {m:20,sq:.12,g:[['make',4,1]]},
+  {m:20,sq:.06,g:[['make',4,1]]},
   {m:20,shape:'cube',prof:'funnel',g:[['make',4,1]]},
   {m:24,fr:.12,rain:5,obs:[pend(.5,.18,.3,.6,1.1,.07)],g:[['make',4,2],['crack',2]],mini:true},
   {m:22,prof:'sablier',jk:.05,g:[['make',4,2]]},
@@ -403,13 +403,13 @@ function levelDef(w,i){const L=Object.assign({},LDEF,i<0?genDaily(w):LEVELS[w][i
   L.g=L.g.map(g=>g.slice());
   const h=hardOf(w,i);L.h=h;if(i>=0&&PAT[i]>=.6)L.hard=1;
   if(!L.time){
-    const D=TUNE.D0+TUNE.DK*h,U=Math.round(D*TUNE.UK);
+    const onb=w===0&&i>=0&&i<3?[.45,.6,.8][i]:1,D=TUNE.D0+TUNE.DK*h,U=Math.round(D*TUNE.UK*onb);
     const other=L.g.filter(g=>g[0]!=='make'&&g[0]!=='score'&&g[0]!=='bank');
     other.forEach(g=>{if(g[0]!=='chain'&&g[0]!=='thaw'&&g[0]!=='gem'&&g[1]>=2)g[1]=Math.ceil(g[1]*(1+.3*h))});
     if(L.push){L.g=[['bank',Math.round(D*TUNE.BANKD/10)*10]].concat(other)}
     else{let bt=7,bc=1,be=1e9;const tmax=i>=0&&PAT[i]>=.6?7:6;for(let t=3;t<=tmax;t++)for(let c=1;c<=3;c++){const e=Math.abs(2**t*c-U)+(c-1)*3;if(e<be){be=e;bt=t;bc=c}}
       L.g=[['make',bt,bc]].concat(other)}
-    L.m=Math.ceil(D*(TUNE.SL0+(i>=0&&PAT[i]<.6?.15:0)-TUNE.SL1*Math.min(1,h)))+TUNE.EXTRA*other.filter(g=>g[0]!=='chain').length;
+    L.m=Math.ceil(D*(onb<1?1.15:1)*(TUNE.SL0+(i>=0&&PAT[i]<.6?.15:0)-TUNE.SL1*Math.min(1,h)))+TUNE.EXTRA*other.filter(g=>g[0]!=='chain').length;
   }
   if(L.time)L.g.forEach(g=>{if(g[0]==='score')g[1]=Math.round(g[1]*(2.5+1.2*h)/10)*10});
   L.tw=twists(L,w);return L}
