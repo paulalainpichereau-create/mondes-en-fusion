@@ -286,7 +286,7 @@ const LEVELS=[
   {m:14,prof:'funnel',g:[['make',3,1]]},
   {m:16,wind:80,g:[['make',3,2],['chain',2]]},
   {m:20,sq:.12,g:[['make',4,1]]},
-  {m:20,shape:'cube',prof:'pyramide',g:[['make',4,1]]},
+  {m:20,shape:'cube',prof:'funnel',g:[['make',4,1]]},
   {m:24,fr:.12,rain:5,obs:[pend(.5,.18,.3,.6,1.1,.07)],g:[['make',4,2],['crack',2]],mini:true},
   {m:22,prof:'sablier',jk:.05,g:[['make',4,2]]},
   {m:99,time:55,bm:.12,g:[['score',260]]},
@@ -296,7 +296,7 @@ const LEVELS=[
  ],
  [ // Cosmos
   {m:15,gs:.7,tilt:14,g:[['make',3,1]]},
-  {m:17,gs:.7,wind:70,wm:'swirl',obs:[rock(.3,.62,.075),rock(.7,.5,.075)],g:[['make',3,2]]},
+  {m:17,gs:.85,wind:35,wm:'swirl',obs:[rock(.3,.66,.06),rock(.7,.56,.06)],g:[['make',3,2]]},
   {m:19,gs:.7,shape:'cube',prof:'vase',jk:.06,launch:1,g:[['make',4,1]]},
   {m:20,gs:.7,fog:1,g:[['score',500]]},
   {m:22,gs:.7,mag:1,bolt:.08,g:[['make',4,2]],mini:true},
@@ -334,7 +334,7 @@ const LEVELS=[
   {m:16,wind:70,wm:'up',prof:'cloche',g:[['make',3,2]]},
   {m:18,eg:.22,g:[['hatch',2],['make',3,1]]},
   {m:20,fog:1,g:[['make',4,1]]},
-  {m:20,shape:'cube',prof:'pyramide',sq:.1,g:[['make',4,1]]},
+  {m:20,prof:'cloche',sq:.06,g:[['make',4,1]]},
   {m:24,gem:2,gemEvery:3,g:[['gem',2]],mini:true},
   {m:22,obs:[pillar(.5,.7)],launch:1,g:[['make',4,2]]},
   {m:99,time:55,eg:.1,jk:.06,g:[['score',280]]},
@@ -393,13 +393,26 @@ function genDaily(w){
   if(o.rise)o.m=28;if(rnd()<.35)o.shape='cube';
   return o;
 }
+// Difficulty: every level gets a hardness h (saw-tooth inside a world, rising across worlds).
+// Goals are expressed as "value" to build (a tier-t bubble = 2^t small bubbles), so a level needs a real number of drops.
+const TUNE={D0:24,DK:14,UK:3.5,SL0:1.6,SL1:.35,BANKD:8.5,EXTRA:2};
+const RANK=[0,1,2,3,4,5,6,3];
+const PAT=[.25,.15,.6,.3,.75,.35,.7,.3,.8,1];
+function hardOf(w,i){return i<0?.5:Math.min(1.4,PAT[i]+RANK[w]*.04)}
 function levelDef(w,i){const L=Object.assign({},LDEF,i<0?genDaily(w):LEVELS[w][i]);
-  if(i>=0){const f=i<5?1.25:1.4;L.g=L.g.map(g=>{g=g.slice();const ix=g[0]==='make'?2:1;
-    if(g[0]==='bank'||g[0]==='score')g[ix]=Math.round(g[ix]*f/10)*10;
-    else if(g[0]!=='chain'&&g[ix]>=2)g[ix]=Math.ceil(g[ix]*f);
-    return g});if(!L.time)L.m=Math.ceil(L.m*1.1)}
-  if(!L.time){L.m=Math.max(L.m,26);if(!L.g.some(g=>g[0]==='score'))L.g=L.g.concat([['score',Math.round(L.m*13/10)*10]])}
-  if(!L.time&&L.m<18)L.m=18;L.tw=twists(L,w);return L}
+  L.g=L.g.map(g=>g.slice());
+  const h=hardOf(w,i);L.h=h;if(i>=0&&PAT[i]>=.6)L.hard=1;
+  if(!L.time){
+    const D=TUNE.D0+TUNE.DK*h,U=Math.round(D*TUNE.UK);
+    const other=L.g.filter(g=>g[0]!=='make'&&g[0]!=='score'&&g[0]!=='bank');
+    other.forEach(g=>{if(g[0]!=='chain'&&g[0]!=='thaw'&&g[0]!=='gem'&&g[1]>=2)g[1]=Math.ceil(g[1]*(1+.3*h))});
+    if(L.push){L.g=[['bank',Math.round(D*TUNE.BANKD/10)*10]].concat(other)}
+    else{let bt=7,bc=1,be=1e9;const tmax=i>=0&&PAT[i]>=.6?7:6;for(let t=3;t<=tmax;t++)for(let c=1;c<=3;c++){const e=Math.abs(2**t*c-U)+(c-1)*3;if(e<be){be=e;bt=t;bc=c}}
+      L.g=[['make',bt,bc]].concat(other)}
+    L.m=Math.ceil(D*(TUNE.SL0+(i>=0&&PAT[i]<.6?.15:0)-TUNE.SL1*Math.min(1,h)))+TUNE.EXTRA*other.filter(g=>g[0]!=='chain').length;
+  }
+  if(L.time)L.g.forEach(g=>{if(g[0]==='score')g[1]=Math.round(g[1]*(2.5+1.2*h)/10)*10});
+  L.tw=twists(L,w);return L}
 const PN={funnel:'Bocal en entonnoir',sablier:'Sablier',vase:'Bocal en vase',cloche:'Bocal en cloche',diamant:'Bocal diamant',pyramide:'Bocal pyramide'};
 const WN={gust:['💨','Rafales'],swirl:['🌀','Tourbillon'],up:['🎈','Courant ascendant'],sin:['🌊','Courant']};
 function twists(L,w){
@@ -881,7 +894,7 @@ function drop(vel){
   if(moves===0){ending=true;endT=0;settle=0}
 }
 function bankIn(b){
-  let p=0;if(b.k==='gem'){gemsGot++;p=60}else if(!b.k||b.k==='joker'||b.k==='bolt')p=Math.round(Math.pow(2,b.l+2));
+  let p=0;if(b.k==='gem'){gemsGot++;p=60}else if(!b.k||b.k==='joker'||b.k==='bolt')p=Math.round(4*Math.pow(2,b.l)*(1+.25*b.l));
   if(!p)return;bank+=p;score+=p;floats.push({x:Math.min(J.x+J.w-34,b.x),y:J.y+J.h-34,t:0,txt:'🎟️ +'+p,col:'#ffe066',sz:22});sPower();
   $('gScore').textContent=score;renderGoals();if(!over&&goalsDone())win();
 }
